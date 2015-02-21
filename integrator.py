@@ -19,7 +19,10 @@ with model:
 
 sim = nengo.Simulator(model)
 # find 1-D principal components and plot
-eval_points, activities = tuning_curves(A, sim)
+
+eval_points_in = np.linspace(-2.0, 2.0, 50)
+eval_points_in = np.ndarray(shape=(50,1), buffer=eval_points_in)
+eval_points, activities = tuning_curves(A, sim, eval_points_in)
 #plt.figure()
 #plt.title("Tuning curves")
 #plt.plot(eval_points, activities)
@@ -34,7 +37,7 @@ principal_components = np.real(np.dot(usi[0:npc, :], activities.transpose()))
 principal_component_functions = []
 for n in range(npc):
     pc = principal_components[n]
-    f = scipy.interpolate.interp1d(eval_points[:,0], pc)
+    f = scipy.interpolate.interp1d(eval_points[:,0], pc, kind='cubic')
     principal_component_functions.append(f)
 #for n in range(npc):
 #    pc = principal_components[n]
@@ -51,7 +54,7 @@ decoders = np.dot(S[0:npc, 0:npc], np.dot(u[:,0:npc].transpose(), base_decoders.
 dt = sim.model.dt
 x_recurrent = 0.0
 pstc_state = 0.0
-pstc_alpha = dt
+pstc_alpha = 1.0 - np.exp(-dt / tau)
 surrogate_data = []
 for t in sim.trange():
     # get the output value from our piecewise input
@@ -66,10 +69,11 @@ for t in sim.trange():
     for n in range(npc):
         f = principal_component_functions[n]
         y = f(input_postfilter)
+        y += np.random.normal(0.0, 0.002)
         pc_outputs.append(y)
     # calculate decoded output as pc_outputs (dot) decoders
     pc_outputs = np.ndarray(shape=(1, 7), buffer=np.array(pc_outputs))
-    decoded_output = np.real(np.dot(pc_outputs, decoders)[0,0])
+    decoded_output = np.real(np.dot(pc_outputs, decoders)[0,0]);
     surrogate_data.append(decoded_output)
     x_recurrent = decoded_output
 
